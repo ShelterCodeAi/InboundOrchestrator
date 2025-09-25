@@ -1,0 +1,232 @@
+settings:
+  default_queue: default
+  max_retries: 3
+  enable_logging: true
+
+# AWS Configuration
+aws_config:
+  region: us-east-1
+  profile: default
+
+# SQS Queue Configurations
+queues:
+  - name: high_priority
+    url: https://sqs.us-east-1.amazonaws.com/123456789012/high-priority
+    description: Queue for high priority emails
+    max_message_size: 262144
+    visibility_timeout: 30
+    message_retention_period: 1209600
+
+  - name: support
+    url: https://sqs.us-east-1.amazonaws.com/123456789012/support
+    description: Queue for support-related emails
+    max_message_size: 262144
+    visibility_timeout: 60
+    message_retention_period: 604800
+
+  - name: sales
+    url: https://sqs.us-east-1.amazonaws.com/123456789012/sales
+    description: Queue for sales inquiries
+    max_message_size: 262144
+    visibility_timeout: 30
+    message_retention_period: 1209600
+
+  - name: marketing
+    url: https://sqs.us-east-1.amazonaws.com/123456789012/marketing
+    description: Queue for marketing emails
+    max_message_size: 262144
+    visibility_timeout: 30
+    message_retention_period: 1209600
+
+  - name: attachments
+    url: https://sqs.us-east-1.amazonaws.com/123456789012/attachments
+    description: Queue for emails with attachments
+    max_message_size: 262144
+    visibility_timeout: 120
+    message_retention_period: 1209600
+
+  - name: default
+    url: https://sqs.us-east-1.amazonaws.com/123456789012/default
+    description: Default queue for all other emails
+    max_message_size: 262144
+    visibility_timeout: 30
+    message_retention_period: 1209600
+
+# Email Processing Rules
+rules:
+  # High Priority Rules (100-90)
+  - name: urgent_keywords
+    description: Route emails with urgent keywords to high priority queue
+    condition: "priority == 'urgent' or contains(subject, 'URGENT') or contains(subject, 'EMERGENCY')"
+    action: high_priority
+    priority: 100
+    enabled: true
+    metadata:
+      category: priority
+      department: all
+
+  - name: after_hours_urgent
+    description: Route after-hours emails with urgent keywords
+    condition: "is_after_hours and (contains(subject, 'urgent') or contains(body_text, 'emergency') or contains(body_text, 'critical'))"
+    action: high_priority
+    priority: 95
+    enabled: true
+    metadata:
+      category: priority
+      department: all
+
+  - name: executive_emails
+    description: Route emails from executives to high priority
+    condition: "contains(sender, 'ceo@') or contains(sender, 'cto@') or contains(sender, 'president@')"
+    action: high_priority
+    priority: 90
+    enabled: true
+    metadata:
+      category: priority
+      department: executive
+
+  # Support Rules (89-80)
+  - name: support_keywords
+    description: Route support emails based on subject keywords
+    condition: "contains(subject, 'help') or contains(subject, 'support') or contains(subject, 'issue') or contains(subject, 'problem')"
+    action: support
+    priority: 85
+    enabled: true
+    metadata:
+      category: department
+      department: support
+
+  - name: bug_reports
+    description: Route bug reports and technical issues
+    condition: "contains(subject, 'bug') or contains(subject, 'error') or contains(subject, 'crash') or contains(body_text, 'not working')"
+    action: support
+    priority: 83
+    enabled: true
+    metadata:
+      category: department
+      department: support
+
+  - name: account_issues
+    description: Route account-related issues
+    condition: "contains(subject, 'account') or contains(subject, 'login') or contains(subject, 'password') or contains(subject, 'access')"
+    action: support
+    priority: 82
+    enabled: true
+    metadata:
+      category: department
+      department: support
+
+  # Sales Rules (79-70)
+  - name: sales_inquiries
+    description: Route sales inquiries to sales team
+    condition: "contains(subject, 'quote') or contains(subject, 'pricing') or contains(subject, 'sales') or contains(subject, 'purchase')"
+    action: sales
+    priority: 75
+    enabled: true
+    metadata:
+      category: department
+      department: sales
+
+  - name: demo_requests
+    description: Route demo requests to sales
+    condition: "contains(subject, 'demo') or contains(subject, 'trial') or contains(body_text, 'demonstration')"
+    action: sales
+    priority: 73
+    enabled: true
+    metadata:
+      category: department
+      department: sales
+
+  - name: partnership_inquiries
+    description: Route partnership inquiries
+    condition: "contains(subject, 'partnership') or contains(subject, 'partner') or contains(subject, 'collaboration')"
+    action: sales
+    priority: 70
+    enabled: true
+    metadata:
+      category: department
+      department: sales
+
+  # Marketing Rules (69-60)
+  - name: marketing_campaigns
+    description: Route marketing-related emails
+    condition: "contains(subject, 'newsletter') or contains(subject, 'campaign') or contains(subject, 'marketing')"
+    action: marketing
+    priority: 65
+    enabled: true
+    metadata:
+      category: department
+      department: marketing
+
+  - name: press_inquiries
+    description: Route press and media inquiries
+    condition: "contains(subject, 'press') or contains(subject, 'media') or contains(sender, 'journalist') or contains(sender, 'reporter')"
+    action: marketing
+    priority: 63
+    enabled: true
+    metadata:
+      category: department
+      department: marketing
+
+  # Attachment Rules (59-50)
+  - name: large_attachments
+    description: Route emails with large attachments to special processing
+    condition: "has_attachments and total_attachment_size > 10485760"  # 10MB
+    action: attachments
+    priority: 55
+    enabled: true
+    metadata:
+      category: content
+      department: all
+
+  - name: document_attachments
+    description: Route emails with document attachments
+    condition: "has_attachments and (has_attachment_type('application/pdf') or has_attachment_type('application/msword'))"
+    action: attachments
+    priority: 53
+    enabled: true
+    metadata:
+      category: content
+      department: all
+
+  - name: multiple_attachments
+    description: Route emails with multiple attachments
+    condition: "attachment_count > 3"
+    action: attachments
+    priority: 50
+    enabled: true
+    metadata:
+      category: content
+      department: all
+
+  # Content-based Rules (49-40)
+  - name: automated_emails
+    description: Route automated emails (newsletters, notifications) to low priority
+    condition: "contains(sender, 'noreply') or contains(sender, 'no-reply') or contains(sender, 'automated')"
+    action: default
+    priority: 45
+    enabled: true
+    metadata:
+      category: content
+      department: all
+
+  - name: external_domain_filter
+    description: Route emails from external domains
+    condition: "not is_internal"
+    action: default
+    priority: 40
+    enabled: true
+    metadata:
+      category: security
+      department: all
+
+# Logging Configuration
+logging_config:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  handlers:
+    - type: console
+    - type: file
+      filename: inbound_orchestrator.log
+      max_bytes: 10485760  # 10MB
+      backup_count: 5
