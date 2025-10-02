@@ -1,0 +1,6 @@
+rule-engine>=4.5.0
+boto3>=1.34.0
+pyyaml>=6.0
+email-validator>=2.1.0
+python-dotenv>=1.0.0
+dataclasses-json>=0.6.0
