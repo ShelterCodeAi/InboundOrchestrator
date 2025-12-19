@@ -10,6 +10,11 @@ This example demonstrates how to:
 
 Note: This example requires a Postgres database with the email_messages schema.
 You'll need to update the database connection parameters below.
+
+Security Note: For production use, store database credentials in environment
+variables rather than hardcoding them:
+    import os
+    password = os.getenv('DB_PASSWORD', '')
 """
 import logging
 import sys
@@ -37,7 +42,7 @@ def main():
         'port': 5432,
         'database': 'email_db',
         'user': 'postgres',
-        'password': 'your_password_here',  # Update this
+        'password': '',  # TODO: Set password or use environment variable: os.getenv('DB_PASSWORD')
         'schema': 'email_messages'
     }
     EMAIL_ID = 33  # The email_id to query for
@@ -167,7 +172,7 @@ def example_with_custom_query():
         'port': 5432,
         'database': 'email_db',
         'user': 'postgres',
-        'password': 'your_password_here',
+        'password': '',  # TODO: Set password or use environment variable
         'schema': 'email_messages'
     }
     

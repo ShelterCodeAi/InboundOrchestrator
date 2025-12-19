@@ -335,7 +335,8 @@ class PostgresEmailIntake:
                 
                 # Add LIMIT if specified (using parameterized query)
                 if limit:
-                    query = sql.SQL("{query} LIMIT %s").format(query=query)
+                    # Properly compose SQL with LIMIT using sql.Composed
+                    query = sql.Composed([query, sql.SQL(" LIMIT %s")])
                     cursor.execute(query, (int(limit),))
                 else:
                     cursor.execute(query)
