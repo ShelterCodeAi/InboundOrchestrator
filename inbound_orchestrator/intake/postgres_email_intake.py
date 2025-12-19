@@ -12,13 +12,16 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import json
+import email.utils
 
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
+    from psycopg2 import sql
 except ImportError:
     psycopg2 = None
     RealDictCursor = None
+    sql = None
 
 from ..models.email_model import EmailData, EmailAttachment
 
@@ -114,9 +117,6 @@ class PostgresEmailIntake:
         Returns:
             SQL query string with schema safely embedded using sql.Identifier
         """
-        # Use psycopg2.sql for safe schema name composition
-        from psycopg2 import sql
-        
         # Build base query with safe schema identifier
         query_template = """
             SELECT 
@@ -249,7 +249,6 @@ class PostgresEmailIntake:
             date_header = headers.get('Date', headers.get('date', ''))
             if date_header:
                 try:
-                    import email.utils
                     sent_date = email.utils.parsedate_to_datetime(date_header)
                 except (TypeError, ValueError):
                     pass
@@ -336,7 +335,6 @@ class PostgresEmailIntake:
                 
                 # Add LIMIT if specified (using parameterized query)
                 if limit:
-                    from psycopg2 import sql
                     query = sql.SQL("{query} LIMIT %s").format(query=query)
                     cursor.execute(query, (int(limit),))
                 else:
