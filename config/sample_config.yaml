@@ -3,6 +3,21 @@ settings:
   max_retries: 3
   enable_logging: true
 
+# Intake Configuration (optional)
+# Configure different email intake sources
+intake:
+  # Postgres database intake configuration
+  postgres:
+    enabled: false  # Set to true to enable Postgres intake
+    host: localhost
+    port: 5432
+    database: email_db
+    user: postgres
+    password: ''  # Set your password or use environment variable
+    schema: email_messages
+    # Default email_id to query (can be overridden in code)
+    default_email_id: 33
+
 # AWS Configuration
 aws_config:
   region: us-east-1

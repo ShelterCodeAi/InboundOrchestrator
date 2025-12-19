@@ -181,6 +181,54 @@ emails = EmailParser.batch_parse_directory("emails/", pattern="*.eml")
 results = orchestrator.process_emails_batch(emails, dry_run=True)
 ```
 
+### Processing Emails from Postgres Database
+
+InboundOrchestrator supports processing emails directly from a Postgres database with the `email_gmail` table schema:
+
+```python
+from inbound_orchestrator import InboundOrchestrator
+from inbound_orchestrator.intake import PostgresEmailIntake
+
+# Initialize the orchestrator
+orchestrator = InboundOrchestrator(
+    config_file="config/sample_config.yaml",
+    default_queue="default"
+)
+
+# Connect to Postgres and process emails
+with PostgresEmailIntake(
+    host='localhost',
+    port=5432,
+    database='email_db',
+    user='postgres',
+    password='your_password',
+    schema='email_messages'
+) as postgres_intake:
+    # Process all emails with email_id=33
+    result = orchestrator.process_postgres_emails(
+        postgres_intake=postgres_intake,
+        email_id=33,
+        dry_run=True  # Set to False to send to SQS
+    )
+    
+    print(f"Processed {result['processed']} emails")
+    print(f"Successful: {result['successful']}")
+    print(f"Failed: {result['failed']}")
+```
+
+**Field Mapping from Postgres:**
+- `subject` → EmailData.subject
+- `body` → EmailData.body_text
+- `from_address` → EmailData.sender
+- `headers` (JSONB) → EmailData.headers, recipients, cc, bcc
+- `email_message_id` → EmailData.message_id
+- `time_received` → EmailData.received_date
+- Date header → EmailData.sent_date (if available)
+
+**Note:** RFC 2047 encoded text in subject/body fields is not decoded and may appear in encoded form.
+
+See `examples/postgres_batch_example.py` for a complete working example.
+
 ### Custom Rule Creation
 
 ```python
