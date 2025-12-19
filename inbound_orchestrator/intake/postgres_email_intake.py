@@ -59,6 +59,14 @@ class PostgresEmailIntake:
                 "Install it with: pip install psycopg2-binary"
             )
         
+        # Validate schema name to prevent SQL injection
+        # Schema names must be valid PostgreSQL identifiers
+        if not schema or not all(c.isalnum() or c == '_' for c in schema):
+            raise ValueError(
+                f"Invalid schema name: {schema}. "
+                "Schema name must contain only alphanumeric characters and underscores."
+            )
+        
         self.connection_params = {
             'host': host,
             'port': port,
@@ -96,6 +104,51 @@ class PostgresEmailIntake:
         """Context manager exit."""
         self.disconnect()
     
+    def _build_email_query(self, where_clause: str = "") -> str:
+        """
+        Build the SQL query for fetching emails.
+        
+        Args:
+            where_clause: Optional WHERE clause (without the WHERE keyword)
+            
+        Returns:
+            SQL query string with schema safely embedded using sql.Identifier
+        """
+        # Use psycopg2.sql for safe schema name composition
+        from psycopg2 import sql
+        
+        # Build base query with safe schema identifier
+        query_template = """
+            SELECT 
+                g.em_id,
+                g.headers,
+                g.gmail_api_thread_id,
+                g.gmail_api_id,
+                g.json_object,
+                m.email_client,
+                m.email_id,
+                m.email_message_id,
+                m.has_attachment,
+                m.from_name,
+                m.from_address,
+                m.time_received,
+                m.subject,
+                m.body,
+                m.raw_mime
+            FROM {schema}.email_gmail g
+            INNER JOIN {schema}.email_message_general m ON g.em_id = m.em_id
+        """
+        
+        if where_clause:
+            query_template += f"\n            WHERE {where_clause}"
+        
+        # Use sql.SQL and sql.Identifier to safely compose the query
+        query = sql.SQL(query_template).format(
+            schema=sql.Identifier(self.schema)
+        )
+        
+        return query
+    
     def fetch_emails_by_email_id(self, email_id: int) -> List[EmailData]:
         """
         Fetch all emails from email_gmail table where email_id matches.
@@ -111,28 +164,8 @@ class PostgresEmailIntake:
         
         try:
             with self._connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                # Query to join email_gmail with email_message_general
-                query = f"""
-                    SELECT 
-                        g.em_id,
-                        g.headers,
-                        g.gmail_api_thread_id,
-                        g.gmail_api_id,
-                        g.json_object,
-                        m.email_client,
-                        m.email_id,
-                        m.email_message_id,
-                        m.has_attachment,
-                        m.from_name,
-                        m.from_address,
-                        m.time_received,
-                        m.subject,
-                        m.body,
-                        m.raw_mime
-                    FROM {self.schema}.email_gmail g
-                    INNER JOIN {self.schema}.email_message_general m ON g.em_id = m.em_id
-                    WHERE m.email_id = %s
-                """
+                # Build query with parameterized email_id to prevent SQL injection
+                query = self._build_email_query("m.email_id = %s")
                 
                 cursor.execute(query, (email_id,))
                 rows = cursor.fetchall()
@@ -298,31 +331,17 @@ class PostgresEmailIntake:
         
         try:
             with self._connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                query = f"""
-                    SELECT 
-                        g.em_id,
-                        g.headers,
-                        g.gmail_api_thread_id,
-                        g.gmail_api_id,
-                        g.json_object,
-                        m.email_client,
-                        m.email_id,
-                        m.email_message_id,
-                        m.has_attachment,
-                        m.from_name,
-                        m.from_address,
-                        m.time_received,
-                        m.subject,
-                        m.body,
-                        m.raw_mime
-                    FROM {self.schema}.email_gmail g
-                    INNER JOIN {self.schema}.email_message_general m ON g.em_id = m.em_id
-                """
+                # Build query without WHERE clause
+                query = self._build_email_query()
                 
+                # Add LIMIT if specified (using parameterized query)
                 if limit:
-                    query += f" LIMIT {int(limit)}"
+                    from psycopg2 import sql
+                    query = sql.SQL("{query} LIMIT %s").format(query=query)
+                    cursor.execute(query, (int(limit),))
+                else:
+                    cursor.execute(query)
                 
-                cursor.execute(query)
                 rows = cursor.fetchall()
                 
                 logger.info(f"Fetched {len(rows)} email(s) from database")
