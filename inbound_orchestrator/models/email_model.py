@@ -95,18 +95,30 @@ class EmailData:
         body_text = ""
         body_html = None
         
+        # Helper to get content from both old and new email API
+        def get_part_content(part):
+            """Get content from email part, compatible with both old and new API."""
+            if hasattr(part, 'get_content'):
+                return part.get_content()
+            else:
+                # Fallback to get_payload for older API
+                payload = part.get_payload(decode=True)
+                if isinstance(payload, bytes):
+                    return payload.decode('utf-8', errors='ignore')
+                return payload or ""
+        
         if message.is_multipart():
             for part in message.walk():
                 content_type = part.get_content_type()
                 if content_type == "text/plain":
-                    body_text = part.get_content()
+                    body_text = get_part_content(part)
                 elif content_type == "text/html":
-                    body_html = part.get_content()
+                    body_html = get_part_content(part)
         else:
             if message.get_content_type() == "text/plain":
-                body_text = message.get_content()
+                body_text = get_part_content(message)
             elif message.get_content_type() == "text/html":
-                body_html = message.get_content()
+                body_html = get_part_content(message)
         
         # Parse dates
         received_date = datetime.now()
@@ -127,11 +139,18 @@ class EmailData:
                 if part.get_content_disposition() == 'attachment':
                     filename = part.get_filename()
                     if filename:
+                        # Get content compatible with both APIs
+                        if hasattr(part, 'get_content'):
+                            content = part.get_content()
+                        else:
+                            content = part.get_payload(decode=True)
+                        
+                        content_len = len(content) if content and hasattr(content, '__len__') else 0
                         attachment = EmailAttachment(
                             filename=filename,
                             content_type=part.get_content_type(),
-                            size=len(part.get_content()) if hasattr(part.get_content(), '__len__') else 0,
-                            content=part.get_content()
+                            size=content_len,
+                            content=content if isinstance(content, bytes) else content.encode('utf-8') if content else b""
                         )
                         attachments.append(attachment)
         

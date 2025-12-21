@@ -343,8 +343,54 @@ python tests/test_email_model.py
 python tests/test_rule_engine.py
 
 # Run with coverage
-python -m pytest tests/ --cov=inbound_orchestrator
+python -m pytest tests/ --cov=inbound_orchestrator --cov-report=term-missing
+
+# Run with coverage threshold (90% required)
+python -m pytest tests/ --cov=inbound_orchestrator --cov-config=.coveragerc --cov-fail-under=90
 ```
+
+### Coverage Requirements
+
+This project maintains a **90% test coverage** requirement for the `inbound_orchestrator` package (excluding CLI and database-dependent modules). The coverage is automatically checked in CI.
+
+**Excluded from coverage:**
+- `cli.py` - Command-line interface (tested manually)
+- `intake/postgres_email_intake.py` - Database-dependent (requires PostgreSQL)
+
+**Current Coverage:**
+- Overall: 91%+
+- `sqs/sqs_client.py`: 95%
+- `rules/rule_engine.py`: 93%
+- `utils/config_loader.py`: 90%
+- `orchestrator.py`: 89%
+- `models/email_model.py`: 88%
+
+### Running Tests Locally
+
+```bash
+# Install test dependencies
+pip install pytest pytest-cov
+
+# Run tests with coverage report
+pytest tests/ --cov=inbound_orchestrator --cov-config=.coveragerc --cov-report=html
+
+# View HTML coverage report
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+start htmlcov/index.html  # Windows
+```
+
+### Continuous Integration
+
+Tests run automatically on every push and pull request via GitHub Actions. The CI workflow:
+
+1. Tests on Python 3.8, 3.9, 3.10, 3.11, and 3.12
+2. Runs full test suite with pytest
+3. Generates coverage report
+4. **Fails if coverage drops below 90%**
+5. Uploads coverage to Codecov (optional)
+
+See `.github/workflows/python-ci.yml` for details.
 
 ### Running Examples
 

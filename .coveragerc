@@ -1,0 +1,16 @@
+[run]
+omit =
+    */inbound_orchestrator/cli.py
+    */inbound_orchestrator/intake/postgres_email_intake.py
+    */tests/*
+    */examples/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod

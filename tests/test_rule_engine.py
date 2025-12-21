@@ -239,5 +239,157 @@ class TestEmailRule(unittest.TestCase):
         self.assertEqual(rule.metadata['source'], 'dict')
 
 
+class TestEmailRuleEngineAdvanced(unittest.TestCase):
+    """Additional test cases for EmailRuleEngine."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.engine = EmailRuleEngine()
+        self.sample_email = EmailData(
+            subject="Test Email",
+            sender="user@example.com",
+            recipients=["support@company.com"],
+            cc_recipients=[],
+            bcc_recipients=[],
+            body_text="Test body content.",
+            body_html=None,
+            message_id="<test@example.com>",
+            received_date=datetime.now(),
+            sent_date=datetime.now(),
+            headers={},
+            attachments=[],
+            priority="normal"
+        )
+    
+    def test_get_rule(self):
+        """Test getting a rule by name."""
+        rule = EmailRule(
+            name="get_test",
+            description="Test get",
+            condition="priority == 'high'",
+            action="test_queue",
+            priority=100,
+            enabled=True
+        )
+        self.engine.add_rule(rule)
+        
+        retrieved = self.engine.get_rule("get_test")
+        self.assertIsNotNone(retrieved)
+        self.assertEqual(retrieved.name, "get_test")
+    
+    def test_get_nonexistent_rule(self):
+        """Test getting a non-existent rule."""
+        retrieved = self.engine.get_rule("nonexistent")
+        self.assertIsNone(retrieved)
+    
+    def test_list_rules_enabled_only(self):
+        """Test listing only enabled rules."""
+        self.engine.add_rule(EmailRule(
+            name="enabled_rule",
+            description="Enabled",
+            condition="priority == 'high'",
+            action="queue1",
+            priority=100,
+            enabled=True
+        ))
+        self.engine.add_rule(EmailRule(
+            name="disabled_rule",
+            description="Disabled",
+            condition="priority == 'low'",
+            action="queue2",
+            priority=50,
+            enabled=False
+        ))
+        
+        enabled_rules = self.engine.list_rules(enabled_only=True)
+        self.assertEqual(len(enabled_rules), 1)
+        self.assertEqual(enabled_rules[0].name, "enabled_rule")
+    
+    def test_get_all_matching_actions(self):
+        """Test getting all matching actions."""
+        self.engine.add_rule(EmailRule(
+            name="rule1",
+            description="First",
+            condition="contains(subject, 'Test')",
+            action="action1",
+            priority=100,
+            enabled=True
+        ))
+        self.engine.add_rule(EmailRule(
+            name="rule2",
+            description="Second",
+            condition="sender_domain == 'example.com'",
+            action="action2",
+            priority=50,
+            enabled=True
+        ))
+        
+        actions = self.engine.get_all_matching_actions(self.sample_email)
+        self.assertIn("action1", actions)
+        self.assertIn("action2", actions)
+    
+    def test_import_rules_with_clear(self):
+        """Test importing rules with clearing existing."""
+        # Add initial rule
+        self.engine.add_rule(EmailRule(
+            name="initial",
+            description="Initial",
+            condition="priority == 'high'",
+            action="queue1",
+            priority=100,
+            enabled=True
+        ))
+        
+        # Import new rules with clear
+        new_rules = [
+            {
+                'name': 'new_rule',
+                'description': 'New',
+                'condition': "priority == 'low'",
+                'action': 'queue2',
+                'priority': 50,
+                'enabled': True
+            }
+        ]
+        
+        self.engine.import_rules(new_rules, clear_existing=True)
+        
+        # Should only have the new rule
+        self.assertEqual(len(self.engine.list_rules()), 1)
+        self.assertEqual(self.engine.list_rules()[0].name, 'new_rule')
+    
+    def test_import_rules_with_error(self):
+        """Test importing rules with some invalid rules."""
+        rules_data = [
+            {
+                'name': 'valid',
+                'description': 'Valid',
+                'condition': "priority == 'high'",
+                'action': 'queue1',
+                'priority': 100,
+                'enabled': True
+            },
+            {
+                'name': 'invalid',
+                'description': 'Invalid',
+                'condition': "invalid syntax!!!",
+                'action': 'queue2',
+                'priority': 50,
+                'enabled': True
+            }
+        ]
+        
+        self.engine.import_rules(rules_data)
+        
+        # Should only import the valid rule
+        self.assertEqual(len(self.engine.list_rules()), 1)
+        self.assertEqual(self.engine.list_rules()[0].name, 'valid')
+    
+    def test_test_rule_with_error(self):
+        """Test testing a rule with invalid syntax."""
+        result = self.engine.test_rule("invalid syntax!!!", self.sample_email)
+        self.assertFalse(result)
+
+
 if __name__ == '__main__':
     unittest.main()
