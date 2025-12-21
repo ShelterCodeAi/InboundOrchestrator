@@ -536,3 +536,273 @@ For questions, issues, or contributions:
 - Configuration management
 - Batch processing support
 - Comprehensive examples and documentation
+
+---
+
+## Fulfillment Ticket Operational System
+
+A comprehensive web-based system for managing fulfillment tickets, claims, and order operations with hierarchical organization and complete audit trails.
+
+### Features
+
+- **📁 Hierarchical Organization**: Browse tickets by Marketplace → Category → Folder
+- **🎫 Ticket Management**: View and manage fulfillment tickets with detailed information
+- **📊 Claims Tracking**: Monitor claims, payments, and order status
+- **🏷️ Flexible Labeling**: Tag tickets with customizable labels
+- **📝 Complete Audit Trail**: Track all changes with detailed action history
+- **💰 Payment Integration**: Link tickets to sales orders, purchase orders, and payments
+- **🔄 Status Tracking**: Monitor ticket and fulfillment states
+- **🎨 Modern UI**: React-based interface with responsive design
+
+### Quick Start - Fulfillment System
+
+#### 1. Database Setup
+
+The system uses PostgreSQL with Alembic for migrations.
+
+**Create database:**
+```bash
+# Create PostgreSQL database
+createdb fulfillment_db
+
+# Or using psql
+psql -U postgres
+CREATE DATABASE fulfillment_db;
+```
+
+**Run migrations:**
+```bash
+# Set database URL (optional - overrides alembic.ini)
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fulfillment_db"
+
+# Run migrations
+alembic upgrade head
+```
+
+**Database schema includes:**
+- Marketplaces, Categories, Folders (hierarchical tree)
+- Tickets with email metadata
+- Labels (many-to-many with tickets)
+- Claims for dispute tracking
+- Sales Orders for payment mapping
+- Users for authentication
+- Actions for complete audit trail
+
+See [Database Schema Documentation](docs/DATABASE_SCHEMA.md) for complete details.
+
+#### 2. Start the API Backend
+
+The FastAPI backend provides REST endpoints for the React UI.
+
+```bash
+# Install dependencies
+pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary
+
+# Start the API server
+cd api
+python main.py
+
+# Or use uvicorn directly
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**API will be available at:**
+- Base API: `http://localhost:8000`
+- Interactive docs: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+See [API Documentation](docs/API_ENDPOINTS.md) for all endpoints.
+
+#### 3. Start the React UI
+
+The React application provides a modern web interface.
+
+```bash
+# Navigate to UI directory
+cd ui
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+**UI will be available at:**
+- React app: `http://localhost:5173` (or `http://localhost:3000`)
+
+**Key UI Components:**
+- **FolderBrowser**: Navigate Marketplace → Category → Folder hierarchy
+- **TicketGrid**: View tickets in card/grid layout with filtering
+- **TicketDetailModal**: Full ticket details with claims and history
+
+### Project Structure
+
+```
+InboundOrchestrator/
+├── api/                          # FastAPI backend
+│   ├── __init__.py
+│   └── main.py                  # API endpoints with mock data
+├── database/                     # Database models
+│   ├── __init__.py
+│   └── models.py                # SQLAlchemy ORM models
+├── migrations/                   # Alembic migrations
+│   ├── versions/
+│   │   └── 48ea33bd6d47_initial_fulfillment_ticket_schema.py
+│   ├── env.py
+│   └── ...
+├── ui/                          # React application
+│   ├── src/
+│   │   ├── components/         # React components
+│   │   │   ├── FolderBrowser.jsx
+│   │   │   ├── TicketGrid.jsx
+│   │   │   └── TicketDetailModal.jsx
+│   │   ├── api/
+│   │   │   └── client.js       # API client
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+├── docs/                        # Documentation
+│   ├── DATABASE_SCHEMA.md      # Complete schema documentation
+│   └── API_ENDPOINTS.md        # API endpoint reference
+├── alembic.ini                 # Alembic configuration
+└── README.md
+```
+
+### Database Entities
+
+#### Core Hierarchy
+- **Marketplaces**: Sales channels (Amazon, eBay, etc.)
+- **Categories**: Organizational units per marketplace
+- **Folders**: Hierarchical tree structure for tickets
+
+#### Tickets & Related
+- **Tickets**: Email-based fulfillment tickets
+- **Labels**: Tags for categorizing tickets (many-to-many)
+- **Claims**: Customer claims and disputes
+- **Sales_Orders**: Links to sales, POs, and payments
+
+#### System
+- **Users**: User accounts and authentication
+- **Actions**: Complete audit trail of changes
+
+### Migration Management
+
+**Create a new migration:**
+```bash
+alembic revision --autogenerate -m "Description of changes"
+```
+
+**Apply migrations:**
+```bash
+alembic upgrade head
+```
+
+**Rollback migrations:**
+```bash
+alembic downgrade -1
+```
+
+**Check current version:**
+```bash
+alembic current
+```
+
+**View migration history:**
+```bash
+alembic history
+```
+
+### Development Workflow
+
+1. **Make database changes**: Modify `database/models.py`
+2. **Generate migration**: `alembic revision --autogenerate -m "description"`
+3. **Review migration**: Check generated file in `migrations/versions/`
+4. **Apply migration**: `alembic upgrade head`
+5. **Update API**: Modify `api/main.py` to use new schema
+6. **Update UI**: Add/modify React components as needed
+
+### Mock Data vs Real Data
+
+**Current Implementation:**
+- API uses **mock data** for demonstration
+- All endpoints return static sample data
+- No database connection required to run
+
+**For Production:**
+1. Update `api/main.py` to use SQLAlchemy ORM
+2. Replace mock data with database queries
+3. Add database session management
+4. Implement authentication/authorization
+5. Add input validation and error handling
+
+### Environment Variables
+
+```bash
+# Database connection
+DATABASE_URL=postgresql://user:password@localhost:5432/fulfillment_db
+
+# API server
+PORT=8000
+
+# React app
+VITE_API_URL=http://localhost:8000
+```
+
+### Testing
+
+**Test the API:**
+```bash
+# Check health
+curl http://localhost:8000/health
+
+# Get marketplaces
+curl http://localhost:8000/api/marketplaces
+
+# Get tickets
+curl http://localhost:8000/api/tickets
+```
+
+**Test the UI:**
+1. Open `http://localhost:5173` in browser
+2. Select a marketplace from the sidebar
+3. Select a category
+4. Select a folder
+5. View tickets in the main area
+6. Click a ticket to see details
+
+### Screenshots
+
+The UI provides:
+- Clean, modern interface with gradient header
+- Sidebar for hierarchical navigation
+- Grid view of tickets with status badges
+- Modal popups for detailed ticket information
+- Color-coded labels and status indicators
+- Complete action history timeline
+
+### Roadmap
+
+- [ ] Connect API to real database (replace mock data)
+- [ ] Add user authentication and authorization
+- [ ] Implement ticket creation and editing
+- [ ] Add claim management features
+- [ ] Implement search and advanced filtering
+- [ ] Add email integration for ticket creation
+- [ ] Create analytics dashboard
+- [ ] Add file attachment support
+- [ ] Implement notifications system
+- [ ] Add bulk operations
+
+### Contributing
+
+Contributions are welcome! Please see the main contributing section above.
+
+### Support
+
+For questions or issues with the Fulfillment Ticket System:
+- Check the [Database Schema Documentation](docs/DATABASE_SCHEMA.md)
+- Review the [API Documentation](docs/API_ENDPOINTS.md)
+- Create an issue in the GitHub repository
+
