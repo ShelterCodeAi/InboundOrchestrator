@@ -143,5 +143,128 @@ class TestEmailAttachment(unittest.TestCase):
         self.assertTrue(att_dict['has_content'])
 
 
+class TestEmailDataAdvanced(unittest.TestCase):
+    """Advanced test cases for EmailData class."""
+    
+    def test_from_email_message_simple(self):
+        """Test creating EmailData from simple EmailMessage."""
+        import email
+        raw_email = """From: sender@example.com
+To: recipient@example.com
+Subject: Test Subject
+Date: Mon, 1 Jan 2024 12:00:00 +0000
+
+Test body content
+"""
+        message = email.message_from_string(raw_email)
+        email_data = EmailData.from_email_message(message)
+        
+        self.assertEqual(email_data.subject, 'Test Subject')
+        self.assertEqual(email_data.sender, 'sender@example.com')
+        self.assertIn('recipient@example.com', email_data.recipients)
+    
+    def test_from_email_message_with_cc_bcc(self):
+        """Test creating EmailData with CC and BCC."""
+        import email
+        raw_email = """From: sender@example.com
+To: recipient@example.com
+Cc: cc@example.com
+Bcc: bcc@example.com
+Subject: Test with CC/BCC
+
+Body
+"""
+        message = email.message_from_string(raw_email)
+        email_data = EmailData.from_email_message(message)
+        
+        self.assertIn('cc@example.com', email_data.cc_recipients)
+        self.assertIn('bcc@example.com', email_data.bcc_recipients)
+    
+    def test_from_email_message_with_priority(self):
+        """Test creating EmailData with priority header."""
+        import email
+        raw_email = """From: sender@example.com
+To: recipient@example.com
+Subject: High Priority
+X-Priority: 1 (Highest)
+
+High priority email
+"""
+        message = email.message_from_string(raw_email)
+        email_data = EmailData.from_email_message(message)
+        
+        self.assertEqual(email_data.priority, 'high')
+    
+    def test_from_email_message_urgent_priority(self):
+        """Test creating EmailData with urgent priority."""
+        import email
+        raw_email = """From: sender@example.com
+To: recipient@example.com
+Subject: Urgent
+Priority: urgent
+
+Urgent email
+"""
+        message = email.message_from_string(raw_email)
+        email_data = EmailData.from_email_message(message)
+        
+        self.assertEqual(email_data.priority, 'urgent')
+    
+    def test_from_email_message_low_priority(self):
+        """Test creating EmailData with low priority."""
+        import email
+        raw_email = """From: sender@example.com
+To: recipient@example.com
+Subject: Low Priority
+X-Priority: 5
+
+Low priority email
+"""
+        message = email.message_from_string(raw_email)
+        email_data = EmailData.from_email_message(message)
+        
+        self.assertEqual(email_data.priority, 'low')
+    
+    def test_sender_domain_extraction(self):
+        """Test sender domain extraction."""
+        email_data = EmailData(
+            subject="Test",
+            sender="user@subdomain.example.com",
+            recipients=["recipient@example.com"],
+            cc_recipients=[],
+            bcc_recipients=[],
+            body_text="Body",
+            body_html=None,
+            message_id="<test@example.com>",
+            received_date=datetime.now(),
+            sent_date=None,
+            headers={},
+            attachments=[],
+            priority="normal"
+        )
+        
+        self.assertEqual(email_data.sender_domain, 'subdomain.example.com')
+    
+    def test_sender_domain_no_at_sign(self):
+        """Test sender domain with invalid email."""
+        email_data = EmailData(
+            subject="Test",
+            sender="invalidemail",
+            recipients=["recipient@example.com"],
+            cc_recipients=[],
+            bcc_recipients=[],
+            body_text="Body",
+            body_html=None,
+            message_id="<test@example.com>",
+            received_date=datetime.now(),
+            sent_date=None,
+            headers={},
+            attachments=[],
+            priority="normal"
+        )
+        
+        self.assertIsNone(email_data.sender_domain)
+
+
 if __name__ == '__main__':
     unittest.main()
