@@ -289,6 +289,70 @@ class InboundOrchestrator:
         email_data = EmailParser.from_raw_email(raw_email)
         return self.process_email(email_data, dry_run=dry_run)
     
+    def process_postgres_emails(self, 
+                                postgres_intake,
+                                email_id: int,
+                                dry_run: bool = False) -> Dict[str, Any]:
+        """
+        Process emails from Postgres database through the rules engine.
+        
+        Args:
+            postgres_intake: PostgresEmailIntake instance (connected)
+            email_id: Email ID to filter by
+            dry_run: If True, don't actually send to SQS
+            
+        Returns:
+            Dictionary containing processing results with email count and individual results
+        """
+        logger.info(f"Processing Postgres emails for email_id={email_id}")
+        
+        try:
+            # Fetch emails from database
+            emails = postgres_intake.fetch_emails_by_email_id(email_id)
+            
+            if not emails:
+                logger.warning(f"No emails found for email_id={email_id}")
+                return {
+                    'email_id': email_id,
+                    'email_count': 0,
+                    'processed': 0,
+                    'successful': 0,
+                    'failed': 0,
+                    'results': []
+                }
+            
+            # Process emails through rules engine
+            results = self.process_emails_batch(emails, dry_run=dry_run)
+            
+            # Summarize results
+            successful = sum(1 for r in results if r['success'])
+            
+            summary = {
+                'email_id': email_id,
+                'email_count': len(emails),
+                'processed': len(results),
+                'successful': successful,
+                'failed': len(results) - successful,
+                'results': results
+            }
+            
+            logger.info(f"Processed {len(emails)} Postgres emails: {successful} successful, {len(results) - successful} failed")
+            
+            return summary
+            
+        except Exception as e:
+            error_msg = f"Error processing Postgres emails: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'email_id': email_id,
+                'email_count': 0,
+                'processed': 0,
+                'successful': 0,
+                'failed': 0,
+                'error': error_msg,
+                'results': []
+            }
+    
     def test_rule(self, rule_condition: str, test_emails: List[EmailData]) -> Dict[str, Any]:
         """
         Test a rule condition against a set of emails.
