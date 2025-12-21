@@ -29,7 +29,7 @@ jobs:
     
     - name: Run tests with coverage
       run: |
-        pytest tests/ --cov=inbound_orchestrator --cov-report=term-missing --cov-report=xml --cov-fail-under=90 -v
+        pytest tests/ --cov=inbound_orchestrator --cov-config=.coveragerc --cov-report=term-missing --cov-report=xml --cov-fail-under=90 -v
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4

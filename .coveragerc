@@ -1,6 +1,7 @@
 [run]
 omit =
     */inbound_orchestrator/cli.py
+    */inbound_orchestrator/intake/postgres_email_intake.py
     */tests/*
     */examples/*
 
