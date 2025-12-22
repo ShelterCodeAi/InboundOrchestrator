@@ -1,0 +1,80 @@
+/* FolderBrowser Component Styles */
+.folder-browser {
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.folder-browser h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.browser-section {
+  margin-bottom: 20px;
+}
+
+.browser-section h3 {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.item-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.item {
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+
+.item:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.item.selected {
+  background: #4CAF50;
+  color: white;
+  border-color: #45a049;
+}
+
+.item strong {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.item-code,
+.item-desc,
+.item-path {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
