@@ -47,9 +47,15 @@ def process_db_emails(args):
         )
         
         # Get database connection parameters from args or environment
+        try:
+            port = args.port if args.port is not None else int(os.environ.get('POSTGRES_PORT', '5432'))
+        except ValueError:
+            print(f"Error: Invalid port value in POSTGRES_PORT environment variable")
+            return 1
+        
         db_params = {
             'host': args.host or os.environ.get('POSTGRES_HOST', 'localhost'),
-            'port': args.port or int(os.environ.get('POSTGRES_PORT', 5432)),
+            'port': port,
             'database': args.database or os.environ.get('POSTGRES_DB', 'email_db'),
             'user': args.user or os.environ.get('POSTGRES_USER', 'postgres'),
             'password': args.password or os.environ.get('POSTGRES_PASSWORD', ''),
@@ -68,10 +74,13 @@ def process_db_emails(args):
             # Fetch emails based on email_id or all with limit
             if args.email_id:
                 emails = postgres_intake.fetch_emails_by_email_id(args.email_id)
-                print(f"Fetched {len(emails)} email(s) for email_id={args.email_id}")
+                email_count = len(emails)
+                print(f"Fetched {email_count} email{'s' if email_count != 1 else ''} for email_id={args.email_id}")
             else:
                 emails = postgres_intake.fetch_all_emails(limit=args.limit)
-                print(f"Fetched {len(emails)} email(s) from database" + (f" (limit={args.limit})" if args.limit else ""))
+                email_count = len(emails)
+                limit_msg = f" (limit={args.limit})" if args.limit else ""
+                print(f"Fetched {email_count} email{'s' if email_count != 1 else ''} from database{limit_msg}")
             
             if not emails:
                 print("No emails found matching criteria")
@@ -85,7 +94,8 @@ def process_db_emails(args):
             failed = len(results) - successful
             
             # Print summary
-            print(f"\nProcessed {len(results)} emails:")
+            result_count = len(results)
+            print(f"\nProcessed {result_count} email{'s' if result_count != 1 else ''}:")
             print(f"  Successful: {successful}")
             print(f"  Failed: {failed}")
             print(f"  Success Rate: {(successful/len(results)*100):.1f}%")
