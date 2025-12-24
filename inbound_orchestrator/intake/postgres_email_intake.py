@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import json
 import email.utils
+import os
 
 try:
     import psycopg2
@@ -23,7 +24,7 @@ except ImportError:
     RealDictCursor = None
     sql = None
 
-from ..models.email_model import EmailData, EmailAttachment
+from ..models.email_model import EmailData
 
 logger = logging.getLogger(__name__)
 
@@ -39,49 +40,47 @@ class PostgresEmailIntake:
     """
     
     def __init__(self, 
-                 host: str = 'localhost',
-                 port: int = 5432,
-                 database: str = 'email_db',
-                 user: str = 'postgres',
-                 password: str = '',
-                 schema: str = 'email_messages'):
+                 host: str = None,
+                 port: int = None,
+                 database: str = None,
+                 user: str = None,
+                 password: str = None,
+                 schema: str = None):
         """
         Initialize Postgres email intake.
         
         Args:
-            host: Database host
-            port: Database port
-            database: Database name
-            user: Database user
-            password: Database password
-            schema: Database schema containing email tables (default: email_messages)
+            host: Database host (default: from env POSTGRES_HOST or 'localhost')
+            port: Database port (default: from env POSTGRES_PORT or 5432)
+            database: Database name (default: from env POSTGRES_DB or 'email_db')
+            user: Database user (default: from env POSTGRES_USER or 'postgres')
+            password: Database password (default: from env POSTGRES_PASSWORD or '')
+            schema: Database schema (default: from env POSTGRES_SCHEMA or 'email_messages')
         """
         if psycopg2 is None:
             raise ImportError(
                 "psycopg2 is required for Postgres email intake. "
                 "Install it with: pip install psycopg2-binary"
             )
-        
+        # Read from environment variables if not provided
+        self.connection_params = {
+            'host': host or os.environ.get('POSTGRES_HOST', 'localhost'),
+            'port': int(port or os.environ.get('POSTGRES_PORT', 5432)),
+            'database': database or os.environ.get('POSTGRES_DB', 'email_db'),
+            'user': user or os.environ.get('POSTGRES_USER', 'postgres'),
+            'password': password or os.environ.get('POSTGRES_PASSWORD', '')
+        }
+        self.schema = schema or os.environ.get('POSTGRES_SCHEMA', 'email_messages')
         # Validate schema name to prevent SQL injection
-        # Schema names must be valid PostgreSQL identifiers
-        if not schema or not all(c.isalnum() or c == '_' for c in schema):
+        if not self.schema or not all(c.isalnum() or c == '_' for c in self.schema):
             raise ValueError(
-                f"Invalid schema name: {schema}. "
+                f"Invalid schema name: {self.schema}. "
                 "Schema name must contain only alphanumeric characters and underscores."
             )
-        
-        self.connection_params = {
-            'host': host,
-            'port': port,
-            'database': database,
-            'user': user,
-            'password': password
-        }
-        self.schema = schema
         self._connection = None
         
-        logger.info(f"PostgresEmailIntake initialized for {host}:{port}/{database}")
-    
+        logger.info(f"PostgresEmailIntake initialized for {self.connection_params['host']}:{self.connection_params['port']}/{self.connection_params['database']}")
+
     def connect(self) -> None:
         """Establish connection to the database."""
         try:
