@@ -6,10 +6,11 @@ import argparse
 import sys
 import logging
 from pathlib import Path
+import os
 
 from .orchestrator import InboundOrchestrator
-from .utils.email_parser import EmailParser
 from .utils.config_loader import ConfigLoader
+from .intake.postgres_email_intake import PostgresEmailIntake
 
 
 def setup_logging(level=logging.INFO):
@@ -35,76 +36,101 @@ def create_sample_config(args):
     return 0
 
 
-def process_email_file(args):
-    """Process a single email file."""
+def process_db_emails(args):
+    """Process emails from PostgreSQL database."""
     try:
+        # Initialize orchestrator
         orchestrator = InboundOrchestrator(
             config_file=args.config,
             aws_region=args.region,
             default_queue=args.default_queue
         )
         
-        result = orchestrator.process_email_from_file(
-            args.email_file,
-            dry_run=args.dry_run
-        )
-        
-        print(f"Email processed successfully:")
-        print(f"  Subject: {result.get('subject', 'N/A')}")
-        print(f"  Sender: {result.get('sender', 'N/A')}")
-        print(f"  Queue: {result.get('queue_name', 'N/A')}")
-        print(f"  Matched Rules: {', '.join(result.get('matched_rules', []))}")
-        print(f"  Success: {result.get('success', False)}")
-        
-        if result.get('error'):
-            print(f"  Error: {result['error']}")
+        # Get database connection parameters from args or environment
+        try:
+            port = args.port if args.port is not None else int(os.environ.get('POSTGRES_PORT', '5432'))
+        except ValueError:
+            print(f"Error: Invalid port value in POSTGRES_PORT environment variable")
             return 1
+        
+        db_params = {
+            'host': args.host or os.environ.get('POSTGRES_HOST', 'localhost'),
+            'port': port,
+            'database': args.database or os.environ.get('POSTGRES_DB', 'email_db'),
+            'user': args.user or os.environ.get('POSTGRES_USER', 'postgres'),
+            'password': args.password or os.environ.get('POSTGRES_PASSWORD', ''),
+            'schema': args.schema or os.environ.get('POSTGRES_SCHEMA', 'email_messages')
+        }
+        
+        # Connect to database and fetch emails
+        with PostgresEmailIntake(**db_params) as postgres_intake:
+            # Test connection
+            if not postgres_intake.test_connection():
+                print("Error: Failed to connect to database")
+                return 1
             
-    except Exception as e:
-        print(f"Error processing email: {e}")
+            print(f"Connected to database: {db_params['host']}:{db_params['port']}/{db_params['database']}")
+            
+            # Fetch emails based on email_id or all with limit
+            if args.email_id:
+                emails = postgres_intake.fetch_emails_by_email_id(args.email_id)
+                email_count = len(emails)
+                print(f"Fetched {email_count} email{'s' if email_count != 1 else ''} for email_id={args.email_id}")
+            else:
+                emails = postgres_intake.fetch_all_emails(limit=args.limit)
+                email_count = len(emails)
+                limit_msg = f" (limit={args.limit})" if args.limit else ""
+                print(f"Fetched {email_count} email{'s' if email_count != 1 else ''} from database{limit_msg}")
+            
+            if not emails:
+                print("No emails found matching criteria")
+                return 1
+            
+            # Process emails through orchestrator
+            results = orchestrator.process_emails_batch(emails, dry_run=args.dry_run)
+            
+            # Calculate statistics
+            successful = sum(1 for r in results if r['success'])
+            failed = len(results) - successful
+            
+            # Print summary
+            result_count = len(results)
+            print(f"\nProcessed {result_count} email{'s' if result_count != 1 else ''}:")
+            print(f"  Successful: {successful}")
+            print(f"  Failed: {failed}")
+            print(f"  Success Rate: {(successful/len(results)*100):.1f}%")
+            
+            # Show queue distribution
+            queue_counts = {}
+            for result in results:
+                queue = result.get('queue_name', 'unknown')
+                queue_counts[queue] = queue_counts.get(queue, 0) + 1
+            
+            print("\nQueue Distribution:")
+            for queue, count in sorted(queue_counts.items()):
+                print(f"  {queue}: {count}")
+            
+            # Show rule matches
+            rule_matches = {}
+            for result in results:
+                for rule in result.get('matched_rules', []):
+                    rule_matches[rule] = rule_matches.get(rule, 0) + 1
+            
+            if rule_matches:
+                print("\nRule Matches:")
+                for rule, count in sorted(rule_matches.items(), key=lambda x: x[1], reverse=True):
+                    print(f"  {rule}: {count}")
+            
+            if args.dry_run:
+                print("\n(DRY RUN - No messages were actually sent to SQS)")
+                
+    except ImportError as e:
+        print("Error: PostgreSQL support not available")
+        print("Install psycopg2 with: pip install psycopg2-binary")
         return 1
-    
-    return 0
-
-
-def process_email_directory(args):
-    """Process all email files in a directory."""
-    try:
-        orchestrator = InboundOrchestrator(
-            config_file=args.config,
-            aws_region=args.region,
-            default_queue=args.default_queue
-        )
-        
-        emails = EmailParser.batch_parse_directory(
-            args.directory,
-            pattern=args.pattern or "*.eml"
-        )
-        
-        if not emails:
-            print(f"No email files found in {args.directory}")
-            return 1
-        
-        results = orchestrator.process_emails_batch(emails, dry_run=args.dry_run)
-        
-        successful = sum(1 for r in results if r['success'])
-        print(f"Processed {len(results)} emails:")
-        print(f"  Successful: {successful}")
-        print(f"  Failed: {len(results) - successful}")
-        print(f"  Success Rate: {(successful/len(results)*100):.1f}%")
-        
-        # Show queue distribution
-        queue_counts = {}
-        for result in results:
-            queue = result.get('queue_name', 'unknown')
-            queue_counts[queue] = queue_counts.get(queue, 0) + 1
-        
-        print("\nQueue Distribution:")
-        for queue, count in sorted(queue_counts.items()):
-            print(f"  {queue}: {count}")
-            
     except Exception as e:
-        print(f"Error processing directory: {e}")
+        print(f"Error processing database emails: {e}")
+        logging.exception("Detailed error:")
         return 1
     
     return 0
@@ -185,11 +211,14 @@ Examples:
   # Create sample configuration
   inbound-orchestrator create-config --output config.yaml
   
-  # Process single email file
-  inbound-orchestrator process-file --config config.yaml --email-file email.eml
+  # Process emails from database by email_id (dry run)
+  inbound-orchestrator process-db --config config.yaml --email-id 33 --dry-run
   
-  # Process directory of emails (dry run)
-  inbound-orchestrator process-dir --config config.yaml --directory emails/ --dry-run
+  # Process all emails from database with limit
+  inbound-orchestrator process-db --config config.yaml --limit 100
+  
+  # Process with custom database connection
+  inbound-orchestrator process-db --host db.example.com --port 5432 --database email_db --user myuser --password mypass
   
   # Check system health
   inbound-orchestrator health --config config.yaml
@@ -212,16 +241,17 @@ Examples:
     config_parser.add_argument('--output', '-o', required=True, help='Output file path')
     config_parser.add_argument('--format', choices=['yaml', 'json'], help='Configuration format')
     
-    # Process file command
-    file_parser = subparsers.add_parser('process-file', help='Process single email file')
-    file_parser.add_argument('--email-file', '-f', required=True, type=Path, help='Email file to process')
-    file_parser.add_argument('--dry-run', action='store_true', help='Perform dry run (no SQS sending)')
-    
-    # Process directory command
-    dir_parser = subparsers.add_parser('process-dir', help='Process directory of email files')
-    dir_parser.add_argument('--directory', '-d', required=True, type=Path, help='Directory containing email files')
-    dir_parser.add_argument('--pattern', '-p', help='File pattern to match (default: *.eml)')
-    dir_parser.add_argument('--dry-run', action='store_true', help='Perform dry run (no SQS sending)')
+    # Process database command
+    db_parser = subparsers.add_parser('process-db', help='Process emails from PostgreSQL database')
+    db_parser.add_argument('--host', help='Database host (default: env POSTGRES_HOST or localhost)')
+    db_parser.add_argument('--port', type=int, help='Database port (default: env POSTGRES_PORT or 5432)')
+    db_parser.add_argument('--database', '--db', help='Database name (default: env POSTGRES_DB or email_db)')
+    db_parser.add_argument('--user', help='Database user (default: env POSTGRES_USER or postgres)')
+    db_parser.add_argument('--password', help='Database password (default: env POSTGRES_PASSWORD or empty)')
+    db_parser.add_argument('--schema', help='Database schema (default: env POSTGRES_SCHEMA or email_messages)')
+    db_parser.add_argument('--email-id', type=int, help='Process emails with specific email_id')
+    db_parser.add_argument('--limit', type=int, help='Limit number of emails to fetch (when not using --email-id)')
+    db_parser.add_argument('--dry-run', action='store_true', help='Perform dry run (no SQS sending)')
     
     # Statistics command
     subparsers.add_parser('stats', help='Show processing statistics')
@@ -242,10 +272,8 @@ Examples:
     # Route to appropriate handler
     if args.command == 'create-config':
         return create_sample_config(args)
-    elif args.command == 'process-file':
-        return process_email_file(args)
-    elif args.command == 'process-dir':
-        return process_email_directory(args)
+    elif args.command == 'process-db':
+        return process_db_emails(args)
     elif args.command == 'stats':
         return show_statistics(args)
     elif args.command == 'health':
