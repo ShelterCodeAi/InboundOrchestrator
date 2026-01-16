@@ -59,9 +59,9 @@ class SQSOutboundService(Service):
                 self.queues = json.loads(queues_json) if queues_json else {}
                 
             except json.JSONDecodeError as e:
-                self.logger.error(f"Error parsing AWS configuration from KV DB: {e}")
+                self.logger.error(f"Error parsing AWS configuration from KV DB")
             except Exception as e:
-                self.logger.error(f"Error initializing SQS client (credential loading or client creation): {e}")
+                self.logger.error(f"Error initializing SQS client")
     
     def handle(self):
         email_data = self.request.payload.get('email_data', {})

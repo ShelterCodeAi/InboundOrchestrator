@@ -74,9 +74,9 @@ class RuleEvaluatorService(Service):
         Evaluate rule condition against email data.
         Uses restricted evaluation with safe operators only.
         
-        Note: This uses eval() with a restricted context and no __builtins__.
-        For production use, consider using a dedicated expression library
-        like 'simpleeval' for enhanced security.
+        SECURITY NOTE: This uses eval() with restricted context and pattern validation.
+        For production environments with untrusted rule sources, strongly recommend
+        using the 'simpleeval' library which provides a safer expression evaluator.
         
         Args:
             condition (str): Python expression to evaluate
@@ -87,9 +87,15 @@ class RuleEvaluatorService(Service):
         """
         try:
             # Validate condition doesn't contain dangerous patterns
-            dangerous_patterns = ['__', 'import', 'exec', 'compile', 'open', 'file']
-            if any(pattern in condition.lower() for pattern in dangerous_patterns):
-                self.logger.error(f"Condition contains forbidden pattern: {condition}")
+            # Comprehensive list to prevent code injection and introspection
+            dangerous_patterns = [
+                '__', 'import', 'exec', 'eval', 'compile', 'open', 'file',
+                'globals', 'locals', 'vars', 'dir', 'getattr', 'setattr',
+                'delattr', 'hasattr', '__builtins__', '__import__'
+            ]
+            condition_lower = condition.lower()
+            if any(pattern in condition_lower for pattern in dangerous_patterns):
+                self.logger.error(f"Condition contains forbidden pattern")
                 return False
             
             # Create safe evaluation context with email fields only
@@ -106,10 +112,10 @@ class RuleEvaluatorService(Service):
             }
             
             # Evaluate condition with no builtins for security
-            # Note: For production, consider using 'simpleeval' library
+            # Production: Replace with simpleeval for enhanced security
             result = eval(condition, {"__builtins__": {}}, context)
             return bool(result)
             
         except Exception as e:
-            self.logger.error(f"Error evaluating condition '{condition}': {e}")
+            self.logger.error(f"Error evaluating rule condition")
             return False

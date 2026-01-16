@@ -98,5 +98,5 @@ class EmailOrchestratorService(Service):
                 
         except Exception as e:
             # Don't fail the whole operation if stats update fails
-            # Include which stat was being updated for debugging
-            self.logger.error(f"Error updating statistics (queue: {queue_name}, matched: {matched}, success: {success}): {e}")
+            # Log error without exposing internal state values
+            self.logger.error(f"Error updating email processing statistics: {e}")

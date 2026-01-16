@@ -43,8 +43,13 @@ class TestRuleEvaluatorLogic:
         """
         try:
             # Validate condition doesn't contain dangerous patterns
-            dangerous_patterns = ['__', 'import', 'exec', 'compile', 'open', 'file']
-            if any(pattern in condition.lower() for pattern in dangerous_patterns):
+            dangerous_patterns = [
+                '__', 'import', 'exec', 'eval', 'compile', 'open', 'file',
+                'globals', 'locals', 'vars', 'dir', 'getattr', 'setattr',
+                'delattr', 'hasattr', '__builtins__', '__import__'
+            ]
+            condition_lower = condition.lower()
+            if any(pattern in condition_lower for pattern in dangerous_patterns):
                 return False
             
             context = {
@@ -198,7 +203,14 @@ class TestRuleEvaluatorLogic:
             "exec('print(1)')",
             "compile('x=1', '', 'exec')",
             "open('/etc/passwd')",
-            "__builtins__['eval']"
+            "__builtins__['eval']",
+            "eval('1+1')",
+            "globals()",
+            "locals()",
+            "vars()",
+            "dir()",
+            "getattr(obj, 'attr')",
+            "setattr(obj, 'attr', 'val')"
         ]
         
         email_data = {
