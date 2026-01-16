@@ -46,6 +46,7 @@ zato_services/
 - **Purpose:** Evaluate emails against routing rules
 - **Input:** Email data dictionary
 - **Output:** Matched rule name and action (queue name)
+- **Security Note:** Uses eval() with restricted context and pattern validation. For production environments with untrusted rule sources, consider using `simpleeval` library for enhanced security.
 
 #### 5. SQSOutboundService
 - **Service Name:** `email.outbound.sqs-send`

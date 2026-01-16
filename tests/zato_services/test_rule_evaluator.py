@@ -39,9 +39,14 @@ class TestRuleEvaluatorLogic:
     
     def _evaluate_condition(self, condition, email_data):
         """
-        Simulate the rule evaluation logic.
+        Simulate the rule evaluation logic with security checks.
         """
         try:
+            # Validate condition doesn't contain dangerous patterns
+            dangerous_patterns = ['__', 'import', 'exec', 'compile', 'open', 'file']
+            if any(pattern in condition.lower() for pattern in dangerous_patterns):
+                return False
+            
             context = {
                 'subject': email_data.get('subject', ''),
                 'sender': email_data.get('sender', ''),
@@ -184,6 +189,26 @@ class TestRuleEvaluatorLogic:
         
         result = self._evaluate_condition(invalid_condition, email_data)
         assert result == False
+    
+    def test_dangerous_pattern_rejection(self):
+        """Test that dangerous patterns are rejected."""
+        dangerous_conditions = [
+            "__import__('os').system('ls')",
+            "import os",
+            "exec('print(1)')",
+            "compile('x=1', '', 'exec')",
+            "open('/etc/passwd')",
+            "__builtins__['eval']"
+        ]
+        
+        email_data = {
+            'subject': 'Test',
+            'sender': 'user@example.com'
+        }
+        
+        for condition in dangerous_conditions:
+            result = self._evaluate_condition(condition, email_data)
+            assert result == False, f"Dangerous condition should be rejected: {condition}"
 
 
 class TestRuleStorage:

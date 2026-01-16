@@ -72,7 +72,11 @@ class RuleEvaluatorService(Service):
     def _evaluate_condition(self, condition, email_data):
         """
         Evaluate rule condition against email data.
-        Uses Python eval with controlled namespace for security.
+        Uses restricted evaluation with safe operators only.
+        
+        Note: This uses eval() with a restricted context and no __builtins__.
+        For production use, consider using a dedicated expression library
+        like 'simpleeval' for enhanced security.
         
         Args:
             condition (str): Python expression to evaluate
@@ -82,7 +86,13 @@ class RuleEvaluatorService(Service):
             bool: Result of condition evaluation
         """
         try:
-            # Create safe evaluation context with email fields
+            # Validate condition doesn't contain dangerous patterns
+            dangerous_patterns = ['__', 'import', 'exec', 'compile', 'open', 'file']
+            if any(pattern in condition.lower() for pattern in dangerous_patterns):
+                self.logger.error(f"Condition contains forbidden pattern: {condition}")
+                return False
+            
+            # Create safe evaluation context with email fields only
             context = {
                 'subject': email_data.get('subject', ''),
                 'sender': email_data.get('sender', ''),
@@ -95,7 +105,8 @@ class RuleEvaluatorService(Service):
                 'cc_recipients': email_data.get('cc_recipients', []),
             }
             
-            # Evaluate condition with restricted builtins
+            # Evaluate condition with no builtins for security
+            # Note: For production, consider using 'simpleeval' library
             result = eval(condition, {"__builtins__": {}}, context)
             return bool(result)
             
