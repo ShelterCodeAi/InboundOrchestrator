@@ -2,6 +2,21 @@
 
 A powerful Python rules engine for processing emails and routing them to different SQS queues based on flexible, user-defined logic. Perfect for automated email workflows, content filtering, and intelligent message routing.
 
+## 🚀 Zato ESB Migration Available
+
+InboundOrchestrator is now available as a **Zato ESB** implementation for enterprise-grade integration! The Zato migration provides:
+
+- **Enterprise Service Bus Architecture**: Built-in service orchestration and message routing
+- **Hot Deployment**: Deploy services without restarts
+- **Web Admin Interface**: Configure and monitor services via web UI
+- **Built-in Scheduler**: Integrated cron-like job scheduling
+- **High Availability**: Easy horizontal scaling with clusters
+- **Enhanced Security**: Built-in authentication, encryption, and API keys
+
+📖 **See [Zato Migration Guide](docs/MIGRATION_GUIDE.md)** for migration instructions.
+
+📋 **See [Migration Plan](ai/migration/migrationplan.md)** for detailed architecture and strategy.
+
 ## Features
 
 - **Flexible Rule Engine**: Use the powerful `rule-engine` PyPI package to define custom rules with complex conditions
@@ -12,6 +27,7 @@ A powerful Python rules engine for processing emails and routing them to differe
 - **Batch Processing**: Process multiple emails efficiently
 - **Performance Monitoring**: Built-in statistics and health checking
 - **Extensible**: Easy to extend with custom email parsing and routing logic
+- **Zato ESB Support**: Enterprise-grade ESB implementation available
 
 ## Installation
 
